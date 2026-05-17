@@ -374,18 +374,14 @@ async function startProcessing(){
     const allGarments=[...uploads.top,...uploads.bottom];
     const garmentDataURL=allGarments[0].dataURL;
 
-    // Avatar görselini fetch edip base64'e çevir
+    // Avatar CDN URL'i direkt gönder, sadece garment base64
     setProcStep(1);
-    const avatarRes=await fetch(av.img);
-    const avatarBlob=await avatarRes.blob();
-    const avatarB64=await new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.readAsDataURL(avatarBlob);});
 
     setProcStep(2);
-    // Netlify function'a base64 olarak gönder
     const response=await fetch("/.netlify/functions/tryon",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({human_image_b64:avatarB64,garment_image_b64:garmentDataURL})
+      body:JSON.stringify({human_image_url:av.img,garment_image_b64:garmentDataURL})
     });
 
     setProcStep(3);
