@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sanal Deneme Kabini</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FAFAF7; --text: #2A2A2A; --muted: #6B6B6B;
+      --border: #E2E2DC; --accent: #2A2A2A; --accent-light: #F0EFE9;
+      --radius: 12px; --max: 720px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; min-height: 100vh; }
+
+    #lang-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; padding: 24px; }
+    #lang-screen h1 { font-family: Georgia, serif; font-size: clamp(24px,5vw,38px); font-weight: normal; text-align: center; }
+    #lang-screen p { color: var(--muted); font-size: 15px; text-align: center; max-width: 380px; }
+    .lang-options { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .lang-btn { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 32px; border: 2px solid var(--border); border-radius: var(--radius); background: #fff; cursor: pointer; transition: all 0.2s; min-width: 140px; }
+    .lang-btn:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+    .lang-flag { font-size: 40px; line-height: 1; }
+    .lang-label { font-size: 16px; font-weight: 600; }
+    .lang-sub { font-size: 12px; color: var(--muted); }
+
+    #app { display: none; }
+    #app.visible { display: block; }
+    header { border-bottom: 1px solid var(--border); padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .header-title { text-align: center; flex: 1; }
+    .header-title h1 { font-family: Georgia, serif; font-size: clamp(18px,4vw,26px); font-weight: normal; }
+    .header-title p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .lang-switch-btn { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+    .lang-switch-btn:hover { border-color: var(--accent); color: var(--text); }
+    main { max-width: var(--max); margin: 0 auto; padding: 36px 20px 80px; }
+
+    .steps { display: flex; align-items: flex-start; justify-content: center; margin-bottom: 44px; }
+    .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; max-width: 160px; position: relative; }
+    .step-item:not(:last-child)::after { content: ""; position: absolute; top: 17px; left: calc(50% + 18px); width: calc(100% - 36px); height: 1px; background: var(--border); transition: background 0.3s; }
+    .step-item.done:not(:last-child)::after { background: var(--accent); }
+    .step-bubble { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: all 0.3s; z-index: 1; }
+    .step-item.active .step-bubble, .step-item.done .step-bubble { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .step-item.done .step-bubble::before { content: "✓"; }
+    .step-item.done .step-bubble span { display: none; }
+    .step-label { font-size: 11px; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
+    .step-item.active .step-label { color: var(--text); font-weight: 600; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel-title { font-family: Georgia, serif; font-size: 22px; font-weight: normal; margin-bottom: 8px; }
+    .panel-desc { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .filter-btn { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .filter-btn.active, .filter-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    @media (max-width: 480px) { .avatar-grid { grid-template-columns: repeat(2, 1fr); } }
+    .avatar-card { border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all 0.2s; background: #fff; position: relative; }
+    .avatar-card:hover { transform: translateY(-3px); border-color: #bbb; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    .avatar-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(42,42,42,0.12); }
+    .avatar-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; object-position: top; display: block; }
+    .avatar-img-wrap { position: relative; }
+    .avatar-body-badge { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,0.55); color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 999px; backdrop-filter: blur(4px); }
+    .check-badge { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; display: none; align-items: center; justify-content: center; z-index: 2; }
+    .avatar-card.selected .check-badge { display: flex; }
+    .avatar-name { padding: 9px 12px 10px; font-size: 13px; font-weight: 500; text-align: center; border-top: 1px solid var(--border); background: #fff; }
+
+    .garment-section { margin-bottom: 28px; }
+    .garment-section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .upload-count-badge { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; min-width: 20px; height: 20px; border-radius: 999px; padding: 0 5px; }
+    .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fff; position: relative; }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-light); }
+    .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-zone h4 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .upload-zone p { color: var(--muted); font-size: 12px; }
+    .formats { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+    .format-tag { padding: 2px 8px; border-radius: 999px; background: var(--accent-light); font-size: 10px; color: var(--muted); border: 1px solid var(--border); }
+    .uploaded-items { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .uploaded-item { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; display: flex; align-items: center; }
+    .uploaded-item-thumb { width: 68px; height: 68px; object-fit: cover; flex-shrink: 0; display: block; }
+    .uploaded-item-info { flex: 1; padding: 10px 14px; min-width: 0; }
+    .uploaded-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .uploaded-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .uploaded-item-remove { background: none; border: none; padding: 16px; cursor: pointer; color: var(--muted); font-size: 18px; transition: color 0.2s; flex-shrink: 0; }
+    .uploaded-item-remove:hover { color: #c00; }
+    .add-more-btn { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px dashed var(--border); border-radius: var(--radius); background: none; cursor: pointer; font-size: 13px; color: var(--muted); transition: all 0.2s; margin-top: 8px; width: 100%; justify-content: center; }
+    .add-more-btn:hover { border-color: var(--accent); color: var(--text); }
+    hr.divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    .summary-banner { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; background: #fff; display: flex; align-items: center; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
+    .summary-thumb { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; object-position: top; border: 2px solid var(--border); flex-shrink: 0; }
+    .summary-text { flex: 1; }
+    .summary-text strong { font-size: 14px; display: block; }
+    .summary-text span { font-size: 12px; color: var(--muted); }
+    .edit-link { font-size: 12px; color: var(--muted); cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; }
+
+    .processing-state { display: none; text-align: center; padding: 64px 24px; }
+    .processing-state.visible { display: block; }
+    .spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 18px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing-state h3 { font-family: Georgia, serif; font-size: 20px; font-weight: normal; margin-bottom: 6px; }
+    .processing-state p { color: var(--muted); font-size: 14px; }
+    .processing-steps { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; max-width: 260px; margin-left: auto; margin-right: auto; }
+    .proc-step { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); text-align: left; }
+    .proc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.4s; }
+    .proc-step.active .proc-dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .proc-step.done .proc-dot { background: var(--accent); animation: none; }
+    .proc-step.active { color: var(--text); font-weight: 500; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .error-box { border: 1px solid #f5c2c2; background: #fff5f5; border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; font-size: 14px; color: #a00; display: none; line-height: 1.6; }
+    .error-box.visible { display: block; }
+
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .result-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; }
+    .result-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+    .result-card-label { padding: 9px 14px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; border-top: 1px solid var(--border); }
+    .result-card.highlight { border-color: var(--accent); border-width: 2px; }
+    .result-card.highlight .result-card-label { background: var(--accent); color: #fff; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 26px; border-radius: var(--radius); font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #111; }
+    .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+    .btn-outline { background: transparent; color: var(--text); border: 2px solid var(--border); }
+    .btn-outline:hover { border-color: var(--accent); }
+    .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+    .action-row .btn { flex: 1; min-width: 130px; }
+    .note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text); color: #fff; padding: 12px 20px; border-radius: var(--radius); font-size: 14px; transition: transform 0.3s; z-index: 9999; white-space: nowrap; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<div id="lang-screen">
+  <h1>Hoş Geldiniz / Welcome</h1>
+  <p>Devam etmek için dilinizi seçin · Choose your language to continue</p>
+  <div class="lang-options">
+    <button class="lang-btn" onclick="chooseLang('tr')"><span class="lang-flag">🇹🇷</span><span class="lang-label">Türkçe</span><span class="lang-sub">Devam et</span></button>
+    <button class="lang-btn" onclick="chooseLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-label">English</span><span class="lang-sub">Continue</span></button>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div style="width:80px"></div>
+    <div class="header-title">
+      <h1 data-i18n="appTitle">Sanal Deneme Kabini</h1>
+      <p data-i18n="appSub">Avatar seç · Ürün yükle · Sonucu gör</p>
+    </div>
+    <button class="lang-switch-btn" id="lang-switch-btn" onclick="switchLang()">🌐 EN</button>
+  </header>
+
+  <main>
+    <nav class="steps">
+      <div class="step-item active" id="step-ind-1"><div class="step-bubble"><span>1</span></div><div class="step-label" data-i18n="stepAvatar">Avatar</div></div>
+      <div class="step-item" id="step-ind-2"><div class="step-bubble"><span>2</span></div><div class="step-label" data-i18n="stepProduct">Ürün</div></div>
+      <div class="step-item" id="step-ind-3"><div class="step-bubble"><span>3</span></div><div class="step-label" data-i18n="stepResult">Sonuç</div></div>
+    </nav>
+
+    <!-- Panel 1: Avatar -->
+    <section class="panel active" id="panel-1">
+      <h2 class="panel-title" data-i18n="p1Title">Avatarını seç</h2>
+      <p class="panel-desc" data-i18n="p1Desc">Sana en yakın vücut tipini seç.</p>
+      <div class="filter-row" id="filter-row">
+        <button class="filter-btn active" data-filter="all" data-i18n-f="filterAll">Tümü</button>
+        <button class="filter-btn" data-filter="kadin" data-i18n-f="filterWomen">Kadın</button>
+        <button class="filter-btn" data-filter="erkek" data-i18n-f="filterMen">Erkek</button>
+        <button class="filter-btn" data-filter="unisex" data-i18n-f="filterUnisex">Unisex</button>
+      </div>
+      <div class="avatar-grid" id="avatar-grid"></div>
+      <div class="action-row">
+        <button class="btn btn-primary" id="btn-to-step2" disabled data-i18n="btnContinue">Devam Et →</button>
+      </div>
+      <p class="note" data-i18n="p1Note">Seçimini istediğin zaman değiştirebilirsin.</p>
+    </section>
+
+    <!-- Panel 2: Ürün -->
+    <section class="panel" id="panel-2">
+      <div class="summary-banner">
+        <img class="summary-thumb" id="sum-avatar-img" src="" alt="avatar" />
+        <div class="summary-text"><strong id="sum-avatar-name">—</strong><span id="sum-avatar-type">—</span></div>
+        <button class="edit-link" onclick="goToStep(1)" data-i18n="btnChange">Değiştir</button>
+      </div>
+      <h2 class="panel-title" data-i18n="p2Title">Giysilerini yükle</h2>
+      <p class="panel-desc" data-i18n="p2Desc">Üst ve alt parçaları ayrı yükleyebilirsin.</p>
+
+      <div class="garment-section">
+        <div class="garment-section-title"><span>👕</span><span data-i18n="secTop">Üst Giysi</span><span class="upload-count-badge" id="count-top" style="display:none">0</span></div>
+        <div class="upload-zone" id="zone-top"><input type="file" id="file-top" accept="image/png,image/jpeg,image/webp" multiple /><div class="upload-icon">📂</div><h4 data-i18n="uzTitle">Sürükle veya tıkla</h4><p data-i18n="uzSub">PNG, JPG, WEBP · Maks 10 MB</p><div class="formats"><span class="format-tag">PNG</span><span class="format-tag">JPG</span><span class="format-tag">WEBP</span></div></div>
+        <div class="uploaded-items" id="items-top"></div>
+        <button class="add-more-btn" id="addmore-top" style="display:none" onclick="document.getElementById('file-top').click()"><span>＋</span><span data-i18n="btnAddMore">Başka parça ekle</span></button>
+      </div>
+
+      <hr class="divider">
+
+      <div class="garment-section">
+        <div class="garment-section-title"><span>👖</span><span data-i18n="secBottom">Alt Giysi</span><span class="upload-count-badge" id="count-bottom" style="display:none">0</span></div>
+        <div class="upload-zone" id="zone-bottom"><input type="file" id="file-bottom" accept="image/png,image/jpeg,image/webp" multiple /><div class="upload-icon">📂</div><h4 data-i18n="uzTitle">Sürükle veya tıkla</h4><p data-i18n="uzSub">PNG, JPG, WEBP · Maks 10 MB</p><div class="formats"><span class="format-tag">PNG</span><span class="format-tag">JPG</span><span class="format-tag">WEBP</span></div></div>
+        <div class="uploaded-items" id="items-bottom"></div>
+        <button class="add-more-btn" id="addmore-bottom" style="display:none" onclick="document.getElementById('file-bottom').click()"><span>＋</span><span data-i18n="btnAddMore">Başka parça ekle</span></button>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-outline" onclick="goToStep(1)" data-i18n="btnBack">← Geri</button>
+        <button class="btn btn-primary" id="btn-to-step3" disabled data-i18n="btnGenerate">Üret →</button>
+      </div>
+      <p class="note" data-i18n="p2Note">Görseller güvenli şekilde işlenir.</p>
+    </section>
+
+    <!-- Panel 3: Sonuç -->
+    <section class="panel" id="panel-3">
+      <div class="processing-state" id="processing-state">
+        <div class="spinner"></div>
+        <h3 data-i18n="procTitle">Deneme görseli hazırlanıyor…</h3>
+        <p data-i18n="procSub">AI modeli ürünleri avatara giydiriyor.</p>
+        <div class="processing-steps">
+          <div class="proc-step" id="ps-1"><div class="proc-dot"></div><span data-i18n="ps1">Görsel yükleniyor</span></div>
+          <div class="proc-step" id="ps-2"><div class="proc-dot"></div><span data-i18n="ps2">AI modeli çalışıyor</span></div>
+          <div class="proc-step" id="ps-3"><div class="proc-dot"></div><span data-i18n="ps3">Giydirme uygulanıyor</span></div>
+          <div class="proc-step" id="ps-4"><div class="proc-dot"></div><span data-i18n="ps4">Sonuç hazırlanıyor</span></div>
+        </div>
+      </div>
+
+      <div class="error-box" id="error-box"></div>
+
+      <div id="result-content" style="display:none">
+        <h2 class="panel-title" data-i18n="resTitle">İşte nasıl duruyor!</h2>
+        <p class="panel-desc" data-i18n="resDesc">AI gerçek giydirme sonucunu oluşturdu.</p>
+        <div class="result-grid" id="result-grid"></div>
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="restart()" data-i18n="btnRestart">Yeni Deneme</button>
+          <button class="btn btn-primary" onclick="downloadResult()" data-i18n="btnDownload">Sonucu İndir</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+const STRINGS = {
+  tr: {
+    appTitle:"Sanal Deneme Kabini", appSub:"Avatar seç · Ürün yükle · Sonucu gör", langSwitch:"🌐 EN",
+    stepAvatar:"Avatar", stepProduct:"Ürün", stepResult:"Sonuç",
+    filterAll:"Tümü", filterWomen:"Kadın", filterMen:"Erkek", filterUnisex:"Unisex",
+    p1Title:"Avatarını seç", p1Desc:"Sana en yakın vücut tipini seç.", p1Note:"Seçimini istediğin zaman değiştirebilirsin.",
+    btnContinue:"Devam Et →", btnChange:"Değiştir", btnBack:"← Geri", btnGenerate:"Üret →",
+    btnAddMore:"Başka parça ekle", btnRestart:"Yeni Deneme", btnDownload:"Sonucu İndir",
+    p2Title:"Giysilerini yükle", p2Desc:"Üst ve alt parçaları ayrı yükleyebilirsin.", p2Note:"Görseller güvenli şekilde işlenir.",
+    secTop:"Üst Giysi", secBottom:"Alt Giysi", uzTitle:"Sürükle veya tıkla", uzSub:"PNG, JPG, WEBP · Maks 10 MB",
+    procTitle:"Deneme görseli hazırlanıyor…", procSub:"AI modeli ürünleri avatara giydiriyor.",
+    ps1:"Görsel yükleniyor", ps2:"AI modeli çalışıyor", ps3:"Giydirme uygulanıyor", ps4:"Sonuç hazırlanıyor",
+    resTitle:"İşte nasıl duruyor!", resDesc:"AI gerçek giydirme sonucunu oluşturdu.",
+    lblAvatar:"Seçilen Avatar", lblTop:"Üst", lblBottom:"Alt", lblResult:"🎉 Giydirilmiş Sonuç",
+    errNoAvatar:"Lütfen önce bir avatar seç.", errNoProduct:"En az bir giysi görseli yükle.",
+    errFileSize:"Dosya 10 MB sınırını aşıyor.", errFileType:"Yalnızca PNG, JPG veya WEBP yükleyebilirsin.",
+    errApi:"Üretim sırasında hata oluştu. Tekrar dene.",
+    bodyTypes:{"İnce yapılı · Orta boy":"İnce yapılı · Orta boy","Dolgun yapılı · Uzun boy":"Dolgun yapılı · Uzun boy","Atletik yapılı · Orta boy":"Atletik yapılı · Orta boy","Petite · Küçük boy":"Petite · Küçük boy","Orta yapılı · Orta boy":"Orta yapılı · Orta boy","İri yapılı · Uzun boy":"İri yapılı · Uzun boy","Atletik yapılı · Uzun boy":"Atletik yapılı · Uzun boy","Nötr yapılı · Orta boy":"Nötr yapılı · Orta boy"}
+  },
+  en: {
+    appTitle:"Virtual Try-On Studio", appSub:"Pick avatar · Upload garments · See result", langSwitch:"🌐 TR",
+    stepAvatar:"Avatar", stepProduct:"Garments", stepResult:"Result",
+    filterAll:"All", filterWomen:"Women", filterMen:"Men", filterUnisex:"Unisex",
+    p1Title:"Choose your avatar", p1Desc:"Select the body type closest to yours.", p1Note:"You can change your selection at any time.",
+    btnContinue:"Continue →", btnChange:"Change", btnBack:"← Back", btnGenerate:"Generate →",
+    btnAddMore:"Add another piece", btnRestart:"New Try-On", btnDownload:"Download Result",
+    p2Title:"Upload your garments", p2Desc:"Upload tops and bottoms separately.", p2Note:"Images are processed securely.",
+    secTop:"Top", secBottom:"Bottom", uzTitle:"Drag & drop or click", uzSub:"PNG, JPG, WEBP · Max 10 MB",
+    procTitle:"Preparing your try-on…", procSub:"AI model is dressing the avatar.",
+    ps1:"Uploading image", ps2:"AI model running", ps3:"Applying outfit", ps4:"Preparing result",
+    resTitle:"Here's how it looks!", resDesc:"AI generated a real try-on result.",
+    lblAvatar:"Selected Avatar", lblTop:"Top", lblBottom:"Bottom", lblResult:"🎉 Try-On Result",
+    errNoAvatar:"Please select an avatar first.", errNoProduct:"Upload at least one garment image.",
+    errFileSize:"File exceeds the 10 MB limit.", errFileType:"Only PNG, JPG, or WEBP files are accepted.",
+    errApi:"An error occurred. Please try again.",
+    bodyTypes:{"İnce yapılı · Orta boy":"Slim · Medium height","Dolgun yapılı · Uzun boy":"Curvy · Tall","Atletik yapılı · Orta boy":"Athletic · Medium height","Petite · Küçük boy":"Petite · Short","Orta yapılı · Orta boy":"Regular · Medium height","İri yapılı · Uzun boy":"Broad · Tall","Atletik yapılı · Uzun boy":"Athletic · Tall","Nötr yapılı · Orta boy":"Neutral · Medium height"}
+  }
+};
+
+const AVATARS = [
+  {id:"a1",name:"Ayşe",type:"kadin",bodyKey:"İnce yapılı · Orta boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192733_779a9d47-8c43-4017-9118-5e1604adb8c6.png"},
+  {id:"a2",name:"Fatma",type:"kadin",bodyKey:"Dolgun yapılı · Uzun boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192734_93e9a5c9-0f9d-464f-814b-183c16335e05.png"},
+  {id:"a3",name:"Zeynep",type:"kadin",bodyKey:"Atletik yapılı · Orta boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192732_3ae82917-11c1-45f4-9f0f-cf1d33b794e2.png"},
+  {id:"a4",name:"Leyla",type:"kadin",bodyKey:"Petite · Küçük boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192737_512342d8-9a12-4408-8805-a22092dfb8b8.png"},
+  {id:"a5",name:"Ahmet",type:"erkek",bodyKey:"Orta yapılı · Orta boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192734_25736eca-d769-4dab-b831-ad6f8541b420.png"},
+  {id:"a6",name:"Mehmet",type:"erkek",bodyKey:"İri yapılı · Uzun boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192733_6b3a17d4-71b2-4def-a8f7-07b5e3de3dbe.png"},
+  {id:"a7",name:"Can",type:"erkek",bodyKey:"Atletik yapılı · Uzun boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192740_a43fe11e-f093-4cae-92ab-85f0f00a435f.png"},
+  {id:"a8",name:"Alex",type:"unisex",bodyKey:"Nötr yapılı · Orta boy",img:"https://d8j0ntlcm91z4.cloudfront.net/user_31WEu83q50kx1UROHD3LkfPgsTf/hf_20260517_192734_f7cc3d71-1f07-4a04-b797-281eddad601e.png"}
+];
+
+let lang="tr", selectedAvatarId=null, currentFilter="all", lastResultUrl=null;
+const uploads={top:[],bottom:[]};
+
+function chooseLang(l){lang=l;document.getElementById("lang-screen").style.display="none";document.getElementById("app").classList.add("visible");applyLang();}
+function switchLang(){lang=lang==="tr"?"en":"tr";applyLang();}
+function t(k){return STRINGS[lang][k]||k;}
+function applyLang(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{const v=STRINGS[lang][el.dataset.i18n];if(v)el.textContent=v;});
+  document.querySelectorAll("[data-i18n-f]").forEach(el=>{const v=STRINGS[lang][el.dataset.i18nF];if(v)el.textContent=v;});
+  document.getElementById("lang-switch-btn").textContent=t("langSwitch");
+  document.documentElement.lang=lang;
+  buildGrid(currentFilter);
+}
+
+function buildGrid(filter){
+  currentFilter=filter;
+  const grid=document.getElementById("avatar-grid");
+  grid.innerHTML="";
+  (filter==="all"?AVATARS:AVATARS.filter(a=>a.type===filter)).forEach(av=>{
+    const bodyLabel=t("bodyTypes")[av.bodyKey]||av.bodyKey;
+    const card=document.createElement("div");
+    card.className="avatar-card"+(selectedAvatarId===av.id?" selected":"");
+    card.dataset.id=av.id;
+    card.innerHTML=`<div class="avatar-img-wrap"><img src="${av.img}" alt="${av.name}" loading="lazy"/><div class="avatar-body-badge">${bodyLabel}</div><div class="check-badge">✓</div></div><div class="avatar-name">${av.name}</div>`;
+    card.addEventListener("click",()=>{selectedAvatarId=av.id;document.querySelectorAll(".avatar-card").forEach(c=>c.classList.toggle("selected",c.dataset.id===av.id));document.getElementById("btn-to-step2").disabled=false;});
+    grid.appendChild(card);
+  });
+}
+document.getElementById("filter-row").addEventListener("click",e=>{const btn=e.target.closest(".filter-btn");if(!btn)return;document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");buildGrid(btn.dataset.filter);});
+buildGrid("all");
+
+function setupZone(zoneId,inputId,section){
+  const zone=document.getElementById(zoneId),input=document.getElementById(inputId);
+  input.addEventListener("change",e=>{Array.from(e.target.files).forEach(f=>addFile(section,f));e.target.value="";});
+  zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag-over");});
+  zone.addEventListener("dragleave",()=>zone.classList.remove("drag-over"));
+  zone.addEventListener("drop",e=>{e.preventDefault();zone.classList.remove("drag-over");Array.from(e.dataTransfer.files).forEach(f=>addFile(section,f));});
+}
+function addFile(section,file){
+  if(file.size>10*1024*1024){showToast(t("errFileSize"));return;}
+  if(!["image/png","image/jpeg","image/webp"].includes(file.type)){showToast(t("errFileType"));return;}
+  const reader=new FileReader();
+  reader.onload=ev=>{uploads[section].push({file,dataURL:ev.target.result,name:file.name});renderItems(section);updateBtn();};
+  reader.readAsDataURL(file);
+}
+function removeFile(section,idx){uploads[section].splice(idx,1);renderItems(section);updateBtn();}
+function renderItems(section){
+  const container=document.getElementById(`items-${section}`),addMore=document.getElementById(`addmore-${section}`),badge=document.getElementById(`count-${section}`),zone=document.getElementById(`zone-${section}`),list=uploads[section];
+  container.innerHTML="";
+  list.forEach((item,idx)=>{const el=document.createElement("div");el.className="uploaded-item";el.innerHTML=`<img class="uploaded-item-thumb" src="${item.dataURL}" alt="${item.name}"/><div class="uploaded-item-info"><div class="uploaded-item-name">${item.name}</div><div class="uploaded-item-meta">${(item.file.size/1024).toFixed(0)} KB</div></div><button class="uploaded-item-remove">×</button>`;el.querySelector(".uploaded-item-remove").addEventListener("click",()=>removeFile(section,idx));container.appendChild(el);});
+  if(list.length>0){zone.style.display="none";addMore.style.display="flex";badge.textContent=list.length;badge.style.display="inline-flex";}
+  else{zone.style.display="block";addMore.style.display="none";badge.style.display="none";}
+}
+function updateBtn(){document.getElementById("btn-to-step3").disabled=uploads.top.length===0&&uploads.bottom.length===0;}
+setupZone("zone-top","file-top","top");
+setupZone("zone-bottom","file-bottom","bottom");
+
+document.getElementById("btn-to-step2").addEventListener("click",()=>goToStep(2));
+document.getElementById("btn-to-step3").addEventListener("click",()=>goToStep(3));
+function goToStep(n){
+  if(n===2&&!selectedAvatarId){showToast(t("errNoAvatar"));return;}
+  if(n===3&&uploads.top.length===0&&uploads.bottom.length===0){showToast(t("errNoProduct"));return;}
+  document.querySelectorAll(".panel").forEach((p,i)=>p.classList.toggle("active",i+1===n));
+  document.querySelectorAll(".step-item").forEach((s,i)=>{const sn=i+1;s.classList.remove("active","done");if(sn<n)s.classList.add("done");else if(sn===n)s.classList.add("active");});
+  if(n===2){const av=AVATARS.find(a=>a.id===selectedAvatarId);document.getElementById("sum-avatar-name").textContent=av.name;document.getElementById("sum-avatar-type").textContent=t("bodyTypes")[av.bodyKey]||av.bodyKey;document.getElementById("sum-avatar-img").src=av.img;}
+  if(n===3)startProcessing();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function setProcStep(active){["ps-1","ps-2","ps-3","ps-4"].forEach((id,i)=>{const el=document.getElementById(id);el.classList.remove("active","done");if(i+1<active)el.classList.add("done");else if(i+1===active)el.classList.add("active");});}
+
+// dataURL → base64 string (data: prefix dahil göndereceğiz, function ayırır)
+async function startProcessing(){
+  const processingEl=document.getElementById("processing-state"),resultEl=document.getElementById("result-content"),errorBox=document.getElementById("error-box");
+  processingEl.classList.add("visible");resultEl.style.display="none";errorBox.classList.remove("visible");errorBox.innerHTML="";lastResultUrl=null;
+  setProcStep(1);
+
+  try{
+    const av=AVATARS.find(a=>a.id===selectedAvatarId);
+    const allGarments=[...uploads.top,...uploads.bottom];
+    const garmentDataURL=allGarments[0].dataURL;
+
+    // Avatar görselini fetch edip base64'e çevir
+    setProcStep(1);
+    const avatarRes=await fetch(av.img);
+    const avatarBlob=await avatarRes.blob();
+    const avatarB64=await new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.readAsDataURL(avatarBlob);});
+
+    setProcStep(2);
+    // Netlify function'a base64 olarak gönder
+    const response=await fetch("/.netlify/functions/tryon",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({human_image_b64:avatarB64,garment_image_b64:garmentDataURL})
+    });
+
+    setProcStep(3);
+    const data=await response.json();
+    if(!response.ok||!data.result_url)throw new Error(data.error||t("errApi"));
+
+    setProcStep(4);
+    lastResultUrl=data.result_url;
+    await new Promise(r=>setTimeout(r,500));
+    showResult(av,data.result_url);
+
+  }catch(err){
+    processingEl.classList.remove("visible");
+    errorBox.innerHTML=`${err.message||t("errApi")}<br><br><button onclick="goToStep(2)" style="margin-top:8px;padding:8px 18px;background:#2A2A2A;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">${lang==="tr"?"← Geri Dön":"← Go Back"}</button>`;
+    errorBox.classList.add("visible");
+  }
+}
+
+function showResult(av,resultUrl){
+  const processingEl=document.getElementById("processing-state"),resultEl=document.getElementById("result-content"),grid=document.getElementById("result-grid");
+  grid.innerHTML="";
+  // Avatar
+  const ac=document.createElement("div");ac.className="result-card";ac.innerHTML=`<img src="${av.img}" alt="${av.name}"/><div class="result-card-label">${t("lblAvatar")} — ${av.name}</div>`;grid.appendChild(ac);
+  // Ürünler
+  [...uploads.top,...uploads.bottom].forEach((item,i)=>{const c=document.createElement("div");c.className="result-card";c.innerHTML=`<img src="${item.dataURL}" alt="${item.name}"/><div class="result-card-label">${i<uploads.top.length?t("lblTop"):t("lblBottom")}</div>`;grid.appendChild(c);});
+  // Sonuç
+  const rc=document.createElement("div");rc.className="result-card highlight";rc.innerHTML=`<img src="${resultUrl}" alt="result"/><div class="result-card-label">${t("lblResult")}</div>`;grid.appendChild(rc);
+  processingEl.classList.remove("visible");resultEl.style.display="block";
+}
+
+function downloadResult(){if(!lastResultUrl)return;const a=document.createElement("a");a.href=lastResultUrl;a.download="tryon-sonuc.jpg";a.target="_blank";a.click();}
+
+function restart(){
+  selectedAvatarId=null;uploads.top=[];uploads.bottom=[];lastResultUrl=null;
+  renderItems("top");renderItems("bottom");
+  document.getElementById("btn-to-step2").disabled=true;document.getElementById("btn-to-step3").disabled=true;
+  document.getElementById("processing-state").classList.remove("visible");document.getElementById("result-content").style.display="none";document.getElementById("error-box").classList.remove("visible");
+  buildGrid(currentFilter);goToStep(1);
+}
+
+function showToast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2800);}
+</script>
+</body>
+</html>
+
